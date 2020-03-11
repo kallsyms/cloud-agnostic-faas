@@ -1,11 +1,11 @@
 """
-This is a small shim wrapping the actual functions to make them (in theory) cloud/FaaS provider agnostic.
+This is a small shim wrapping the actual functions to make them (in theory) cloud/FaaS provider
+agnostic.
 """
 from typing import Mapping, Optional, Any
 
 import base64
 import os
-import collections
 
 
 class HttpRequest(object):
@@ -44,12 +44,12 @@ def proxy(cb, *args):
             method=az_req.method,
             headers=az_req.headers,
             args=az_req.params,
-            body=req.get_body()
+            body=az_req.get_body(),
         )
 
         resp = cb(req)
 
-        az_resp = azure.functions.HttpResponse(
+        return azure.functions.HttpResponse(
             status_code=resp.code,
             headers=resp.headers,
             body=resp.body,
@@ -79,22 +79,6 @@ def proxy(cb, *args):
             # TODO: return isBase64Encoded if binary
         }
 
-    elif 'FUNCTION_NAME' in os.environ:
-        # Google Cloud Functions
-        import flask
-        gcf_req: flask.Request = args[0]
-
-        req = HttpRequest(
-            method=gcf_req.method,
-            headers=gcf_req.headers,
-            args=gcf_req.args,
-            body=gcf_req.data,
-        )
-
-        resp = cb(req)
-
-        return (resp.body, resp.code, resp.headers)
-
     elif '__OW_ACTION_NAME' in os.environ:
         # OpenWhisk (IBM cloud functions)
         params = args[0]
@@ -114,5 +98,18 @@ def proxy(cb, *args):
             # TODO: base64 if necessary based on content type
         }
 
-    else:
-        raise Exception("Unable to determine FaaS environment")
+    elif 'FUNCTION_NAME' in os.environ:
+        # Google Cloud Functions
+        import flask
+        gcf_req: flask.Request = args[0]
+
+        req = HttpRequest(
+            method=gcf_req.method,
+            headers=gcf_req.headers,
+            args=gcf_req.args,
+            body=gcf_req.data,
+        )
+
+        resp = cb(req)
+
+        return (resp.body, resp.code, resp.headers)
